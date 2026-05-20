@@ -1,4 +1,4 @@
-include "V4CoreState.dfy"
+include "../common/V4CoreState.dfy"
 
 module V4CoreDonate {
   import opened V4CoreState

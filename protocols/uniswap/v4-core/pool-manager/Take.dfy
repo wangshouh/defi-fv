@@ -1,25 +1,23 @@
-include "V4CoreState.dfy"
+include "../common/V4CoreState.dfy"
 
-module V4CoreMint {
+module V4CoreTake {
   import opened V4CoreState
 
-  method Mint(
+  method Take(
     balancesBefore: Balances,
     deltasBefore: Deltas,
     sender: Address,
     to: Address,
-    id: nat,
+    currency: Currency,
     amount: nat
   ) returns (
     balancesAfter: Balances,
     deltasAfter: Deltas,
-    currency: Currency,
     tokenId: TokenId
   )
-    requires id <= UINT256_MAX
+    requires currency < UINT160_MODULUS
     requires amount <= INT128_MAX
-    requires BalanceOf(balancesBefore, to, ToId(FromId(id))) + amount <= UINT256_MAX
-    ensures currency == FromId(id)
+    requires BalanceOf(balancesBefore, to, ToId(currency)) + amount <= UINT256_MAX
     ensures tokenId == ToId(currency)
     ensures BalanceOf(balancesAfter, to, tokenId) ==
       BalanceOf(balancesBefore, to, tokenId) + amount
@@ -27,10 +25,9 @@ module V4CoreMint {
       BalanceDeltaOf(deltasBefore, sender, currency) - amount as int
     ensures Inv(balancesBefore, deltasBefore, balancesAfter, deltasAfter, to, sender, currency)
   {
-    currency := FromId(id);
     tokenId := ToId(currency);
 
     deltasAfter := AccountDelta(deltasBefore, currency, sender, -(amount as int));
-    balancesAfter := ERC6909Mint(balancesBefore, to, tokenId, amount);
+    balancesAfter := ExternalReceive(balancesBefore, to, tokenId, amount);
   }
 }

@@ -1,5 +1,5 @@
-include "V4CoreState.dfy"
-include "AfterSwap.dfy"
+include "../common/V4CoreState.dfy"
+include "../hooks/AfterSwap.dfy"
 
 module V4CoreSwap {
   import opened V4CoreState

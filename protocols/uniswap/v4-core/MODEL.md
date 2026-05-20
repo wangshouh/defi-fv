@@ -22,7 +22,7 @@ trackedBalanceBefore + balanceDeltaBefore
 trackedBalanceAfter  + balanceDeltaAfter
 ```
 
-In Dafny this is represented by `Inv` in `V4CoreState.dfy`.
+In Dafny this is represented by `Inv` in `common/V4CoreState.dfy`.
 
 For functions over both pool currencies, `CurrencyPairInv` packages the two
 single-currency invariants:
@@ -53,7 +53,7 @@ delta owner 1 changes by a pair of signed deltas
 `swap` and `modifyLiquidity` both use this predicate before proving the aggregate
 conservation invariant.
 
-`AfterSwap.dfy` models the hook delta composition inside `Hooks.afterSwap`:
+`hooks/AfterSwap.dfy` models the hook delta composition inside `Hooks.afterSwap`:
 
 ```text
 combinedUnspecifiedDelta =
@@ -68,7 +68,7 @@ the same branch as Solidity:
 exactIn == zeroForOne
 ```
 
-`AfterModifyLiquidity.dfy` models the hook delta composition inside
+`hooks/AfterModifyLiquidity.dfy` models the hook delta composition inside
 `Hooks.afterModifyLiquidity`, including the add/remove liquidity branch and
 return-delta flags.
 
@@ -84,7 +84,7 @@ state component being observed is different.
 
 ## State Mapping
 
-The shared model is defined in `V4CoreState.dfy`.
+The shared model is defined in `common/V4CoreState.dfy`.
 
 ```text
 Address
@@ -121,7 +121,7 @@ _mint(to, currency.toId(), amount);
 Dafny:
 
 ```text
-Mint.dfy
+pool-manager/Mint.dfy
   AccountDelta(..., -amount)
   ERC6909Mint(..., amount)
 ```
@@ -148,7 +148,7 @@ _burnFrom(from, currency.toId(), amount);
 Dafny:
 
 ```text
-Burn.dfy
+pool-manager/Burn.dfy
   AccountDelta(..., +amount)
   ERC6909Burn(..., amount)
 ```
@@ -174,7 +174,7 @@ currency.transfer(to, amount);
 Dafny:
 
 ```text
-Take.dfy
+pool-manager/Take.dfy
   AccountDelta(..., -amount)
   ExternalReceive(..., amount)
 ```
@@ -208,7 +208,7 @@ and updates pool fee growth for the two currencies.
 Dafny:
 
 ```text
-Donate.dfy
+pool-manager/Donate.dfy
   AccountDelta(currency0, ..., -amount0)
   AccountDelta(currency1, ..., -amount1)
   ExternalReceive(pool, currency0, amount0)
@@ -253,7 +253,7 @@ swapDelta = swapDelta - hookDelta;
 Dafny:
 
 ```text
-AfterSwap.dfy
+hooks/AfterSwap.dfy
   combinedUnspecifiedDelta =
     beforeUnspecifiedDelta
     + optional afterSwapReturnDelta
@@ -265,9 +265,9 @@ AfterSwap.dfy
     hookDelta0 = combinedUnspecifiedDelta
     hookDelta1 = beforeSpecifiedDelta
 
-Swap.dfy
+pool-manager/Swap.dfy
   rawDelta      models the delta returned by `_swap` before hook adjustment.
-  hookDelta     is computed by `AfterSwap.dfy`.
+  hookDelta     is computed by `hooks/AfterSwap.dfy`.
   callerDelta   is defined as `rawDelta - hookDelta`.
 
   pool-side accounted balance changes by `-rawDelta`.
@@ -287,13 +287,13 @@ is conserved for both `currency0` and `currency1`.
 
 This is represented by `CurrencyPairBalanceTwoDeltasInv`.
 
-`AfterSwap.dfy` also models the self-call early return:
+`hooks/AfterSwap.dfy` also models the self-call early return:
 
 ```text
 isSelfCall => hookDelta == 0 && adjustedSwapDelta == rawSwapDelta
 ```
 
-`Swap.dfy` has separate proofs for the two cases:
+`pool-manager/Swap.dfy` has separate proofs for the two cases:
 
 ```text
 caller != hook:
@@ -333,13 +333,13 @@ _accountPoolBalanceDelta(key, callerDelta, msg.sender);
 Dafny:
 
 ```text
-AfterModifyLiquidity.dfy
+hooks/AfterModifyLiquidity.dfy
   hookDelta is selected from the add-liquidity or remove-liquidity hook return
   depending on `isAddLiquidity`.
 
   If the corresponding returns-delta flag is not set, hookDelta is zero.
 
-ModifyLiquidity.dfy
+pool-manager/ModifyLiquidity.dfy
   rawCallerDelta = principalDelta + feesAccrued
   adjustedCallerDelta = rawCallerDelta - hookDelta
 
@@ -378,7 +378,7 @@ _accountDelta(currency, -(amountDelta), msg.sender);
 Dafny:
 
 ```text
-Clear.dfy
+pool-manager/Clear.dfy
   Clear(...)
   ClearDoesNotSatisfyInv(...)
 ```
@@ -419,13 +419,13 @@ _settle(recipient):
 Dafny:
 
 ```text
-Settle.dfy
+pool-manager/Settle.dfy
   One-step abstraction:
     ExternalPay(...)
     AccountDelta(..., +paid)
 ```
 
-`Settle.dfy` is sufficient for the end-to-end accounting property if `paid` is
+`pool-manager/Settle.dfy` is sufficient for the end-to-end accounting property if `paid` is
 accepted as an environment-provided value.
 
 The model does not currently prove how `paid` is derived from `sync` and
@@ -534,44 +534,44 @@ paid
 The current proofs establish local or fixed-flow properties:
 
 ```text
-Mint.dfy
+pool-manager/Mint.dfy
   `mint` satisfies `Inv`.
 
-Burn.dfy
+pool-manager/Burn.dfy
   `burn` satisfies `Inv`.
 
-Take.dfy
+pool-manager/Take.dfy
   `take` satisfies `Inv`.
 
-Donate.dfy
+pool-manager/Donate.dfy
   `donate` satisfies `CurrencyPairInv` under the pool-side accounted balance
   abstraction.
 
-Swap.dfy
+pool-manager/Swap.dfy
   `swap` satisfies `CurrencyPairBalanceTwoDeltasInv` under the abstraction that
   `_swap` returns `rawDelta`; hook delta composition is delegated to
-  `AfterSwap.dfy`. The self-call path satisfies `CurrencyPairInv` because hook
+  `hooks/AfterSwap.dfy`. The self-call path satisfies `CurrencyPairInv` because hook
   delta is zero and only caller delta is accounted.
 
-AfterSwap.dfy
+hooks/AfterSwap.dfy
   `Hooks.afterSwap` delta composition and specified/unspecified-to-currency
   mapping are verified.
 
-ModifyLiquidity.dfy
+pool-manager/ModifyLiquidity.dfy
   `modifyLiquidity` satisfies `CurrencyPairBalanceTwoDeltasInv` under the
   abstraction that `pool.modifyLiquidity` returns `principalDelta` and
   `feesAccrued`; hook delta composition is delegated to
-  `AfterModifyLiquidity.dfy`. The self-call path satisfies `CurrencyPairInv`
+  `hooks/AfterModifyLiquidity.dfy`. The self-call path satisfies `CurrencyPairInv`
   because hook delta is zero and only caller delta is accounted.
 
-AfterModifyLiquidity.dfy
+hooks/AfterModifyLiquidity.dfy
   `Hooks.afterModifyLiquidity` add/remove branch selection and return-delta
   flag handling are verified.
 
-Clear.dfy
+pool-manager/Clear.dfy
   nonzero `clear` does not satisfy `Inv`.
 
-Settle.dfy
+pool-manager/Settle.dfy
   one-step settle abstraction satisfies `Inv`.
 ```
 

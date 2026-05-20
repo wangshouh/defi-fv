@@ -1,5 +1,5 @@
-include "V4CoreState.dfy"
-include "AfterModifyLiquidity.dfy"
+include "../common/V4CoreState.dfy"
+include "../hooks/AfterModifyLiquidity.dfy"
 
 module V4CoreModifyLiquidity {
   import opened V4CoreState
